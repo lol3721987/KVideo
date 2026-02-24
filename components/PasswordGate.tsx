@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSession, setSession } from '@/lib/store/auth-store';
+import { clearSession, getSession, setSession } from '@/lib/store/auth-store';
 import { useSubscriptionSync } from '@/lib/hooks/useSubscriptionSync';
 import { settingsStore } from '@/lib/store/settings-store';
 import { Lock } from 'lucide-react';
@@ -49,8 +49,16 @@ export function PasswordGate({ children, hasAuth: initialHasAuth }: { children: 
                         settingsStore.syncEnvSubscriptions(data.subscriptionSources);
                     }
 
+                    // Server-side auth is the source of truth for API access.
+                    // If local session exists but server cookie is missing/invalid,
+                    // clear stale local session and force re-login.
+                    const serverAuthenticated = !!data.authenticated;
+                    if (data.hasAuth && !serverAuthenticated && isAuthenticated) {
+                        clearSession();
+                    }
+
                     // Re-evaluate lock status with confirmed server state
-                    const confirmLocked = data.hasAuth && !isAuthenticated;
+                    const confirmLocked = data.hasAuth && !serverAuthenticated;
                     setIsLocked(confirmLocked);
                 }
             } catch (e) {

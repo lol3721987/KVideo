@@ -488,6 +488,7 @@ docker run -d -p 3000:3000 \
 | `ADMIN_PASSWORD` | 管理员密码 | - |
 | `ACCESS_PASSWORD` | 访问密码（向后兼容，等同于 `ADMIN_PASSWORD`） | - |
 | `ACCOUNTS` | 多账户配置，格式：`密码:名称[:角色[:权限1\|权限2]]`，逗号分隔 | - |
+| `AUTH_COOKIE_SECRET` | 后端 API 鉴权 Cookie 签名密钥（强烈建议设置） | 自动基于认证配置生成 |
 | `PERSIST_SESSION` | 是否持久化登录会话 | `true` |
 | `NEXT_PUBLIC_SITE_TITLE` | 浏览器标签页标题 | `KVideo - 视频聚合平台` |
 | `NEXT_PUBLIC_SITE_DESCRIPTION` | 站点描述 | `视频聚合平台` |

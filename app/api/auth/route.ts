@@ -4,6 +4,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  clearAuthCookie,
+  createAuthToken,
+  getAuthTokenFromRequest,
+  isAuthEnabled,
+  setAuthCookie,
+  verifyAuthToken,
+} from '@/lib/server/auth-cookie';
 
 export const runtime = 'edge';
 
@@ -60,13 +68,46 @@ async function generateProfileId(password: string): Promise<string> {
   return hashArray.slice(0, 8).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-export async function GET() {
-  const hasAuth = !!(effectiveAdminPassword || ACCOUNTS);
+async function buildSuccessResponse(
+  name: string,
+  role: 'super_admin' | 'admin' | 'viewer',
+  profileId: string,
+  persistSession: boolean,
+  customPermissions?: string[]
+) {
+  const token = await createAuthToken(
+    {
+      profileId,
+      name,
+      role,
+      customPermissions,
+    },
+    persistSession
+  );
+
+  const response = NextResponse.json({
+    valid: true,
+    name,
+    role,
+    profileId,
+    persistSession,
+    customPermissions: customPermissions && customPermissions.length > 0 ? customPermissions : undefined,
+  });
+
+  setAuthCookie(response, token, persistSession);
+  return response;
+}
+
+export async function GET(request: NextRequest) {
+  const hasAuth = isAuthEnabled();
+  const token = getAuthTokenFromRequest(request);
+  const session = await verifyAuthToken(token);
 
   return NextResponse.json({
     hasAuth,
     persistSession: PERSIST_SESSION,
-    subscriptionSources: SUBSCRIPTION_SOURCES,
+    authenticated: !!session,
+    subscriptionSources: !hasAuth || !!session ? SUBSCRIPTION_SOURCES : '',
   });
 }
 
@@ -81,13 +122,7 @@ export async function POST(request: NextRequest) {
     // 1. Check admin password
     if (effectiveAdminPassword && password === effectiveAdminPassword) {
       const profileId = await generateProfileId(password);
-      return NextResponse.json({
-        valid: true,
-        name: '管理员',
-        role: 'super_admin',
-        profileId,
-        persistSession: PERSIST_SESSION,
-      });
+      return buildSuccessResponse('管理员', 'super_admin', profileId, PERSIST_SESSION);
     }
 
     // 2. Check ACCOUNTS entries
@@ -95,20 +130,29 @@ export async function POST(request: NextRequest) {
     for (const account of accounts) {
       if (password === account.password) {
         const profileId = await generateProfileId(password);
-        return NextResponse.json({
-          valid: true,
-          name: account.name,
-          role: account.role,
+        return buildSuccessResponse(
+          account.name,
+          account.role,
           profileId,
-          persistSession: PERSIST_SESSION,
-          customPermissions: account.customPermissions.length > 0 ? account.customPermissions : undefined,
-        });
+          PERSIST_SESSION,
+          account.customPermissions
+        );
       }
     }
 
     // 3. No match
-    return NextResponse.json({ valid: false });
+    const invalidResponse = NextResponse.json({ valid: false });
+    clearAuthCookie(invalidResponse);
+    return invalidResponse;
   } catch {
-    return NextResponse.json({ valid: false, message: 'Invalid request' }, { status: 400 });
+    const invalidResponse = NextResponse.json({ valid: false, message: 'Invalid request' }, { status: 400 });
+    clearAuthCookie(invalidResponse);
+    return invalidResponse;
   }
+}
+
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  clearAuthCookie(response);
+  return response;
 }

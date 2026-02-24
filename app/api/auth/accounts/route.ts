@@ -4,6 +4,8 @@
  */
 
 import { NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { getAuthTokenFromRequest, isAuthEnabled, verifyAuthToken } from '@/lib/server/auth-cookie';
 
 export const runtime = 'edge';
 
@@ -52,7 +54,20 @@ function getAccountList(): AccountInfo[] {
   return accounts;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (isAuthEnabled()) {
+    const token = getAuthTokenFromRequest(request);
+    const session = await verifyAuthToken(token);
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (session.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+  }
+
   const accounts = getAccountList();
 
   return NextResponse.json({

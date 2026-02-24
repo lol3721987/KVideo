@@ -66,6 +66,15 @@ export function clearSession(): void {
   // Also clear old unlock keys for backward compat cleanup
   sessionStorage.removeItem('kvideo-unlocked');
   localStorage.removeItem('kvideo-unlocked');
+
+  // Clear server-side auth cookie as well.
+  void fetch('/api/auth', {
+    method: 'DELETE',
+    credentials: 'include',
+    keepalive: true,
+  }).catch(() => {
+    // Ignore network errors during logout cleanup.
+  });
 }
 
 export function isAdmin(): boolean {

@@ -29,6 +29,7 @@ export function useSearchAction({ state, onCacheUpdate, onUrlUpdate }: UseSearch
         setLoadingMore,
         currentPage,
         maxPageCount,
+        totalVideosFound,
         startSearch,
     } = state;
 
@@ -159,6 +160,7 @@ export function useSearchAction({ state, onCacheUpdate, onUrlUpdate }: UseSearch
         }
         abortControllerRef.current = new AbortController();
 
+        const baseTotalVideosFound = totalVideosFound;
         setLoadingMore(true);
 
         try {
@@ -183,7 +185,7 @@ export function useSearchAction({ state, onCacheUpdate, onUrlUpdate }: UseSearch
                     setResults((prev) => binaryInsertVideos(prev, newVideos));
                 },
                 onProgress: (_, found) => {
-                    setTotalVideosFound((prev) => prev + found);
+                    setTotalVideosFound(baseTotalVideosFound + found);
                 },
                 onPageInfo: (pageCount) => {
                     setMaxPageCount((prev) => Math.max(prev, pageCount));
@@ -205,7 +207,7 @@ export function useSearchAction({ state, onCacheUpdate, onUrlUpdate }: UseSearch
             console.error('Load more error:', error);
             setLoadingMore(false);
         }
-    }, [currentPage, maxPageCount, setLoadingMore, setResults, setTotalVideosFound, setCurrentPage, setMaxPageCount]);
+    }, [currentPage, maxPageCount, totalVideosFound, setLoadingMore, setResults, setTotalVideosFound, setCurrentPage, setMaxPageCount]);
 
     const cancelSearch = useCallback(() => {
         if (abortControllerRef.current) {

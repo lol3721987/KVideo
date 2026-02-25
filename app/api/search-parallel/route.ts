@@ -6,10 +6,20 @@
 
 import { NextRequest } from 'next/server';
 import { searchVideos } from '@/lib/api/client';
-import { getSourceById } from '@/lib/api/video-sources';
 import { getSourceName } from '@/lib/utils/source-names';
 
 export const runtime = 'edge';
+
+const DEFAULT_SEARCH_CONCURRENCY = 4;
+const MAX_SEARCH_CONCURRENCY = 12;
+
+function getSearchConcurrency(): number {
+  const raw = Number.parseInt(process.env.SEARCH_PARALLEL_CONCURRENCY || '', 10);
+  if (!Number.isFinite(raw) || raw <= 0) {
+    return DEFAULT_SEARCH_CONCURRENCY;
+  }
+  return Math.min(MAX_SEARCH_CONCURRENCY, raw);
+}
 
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
@@ -19,9 +29,11 @@ export async function POST(request: NextRequest) {
       try {
         const body = await request.json();
         const { query, sources: sourceConfigs, page = 1 } = body;
+        const targetPage = Number.isInteger(page) && page > 0 ? page : 1;
+        const trimmedQuery = String(query || '').trim();
 
         // Validate input
-        if (!query || typeof query !== 'string' || query.trim().length === 0) {
+        if (!trimmedQuery) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({
             type: 'error',
             message: 'Invalid query'
@@ -57,13 +69,16 @@ export async function POST(request: NextRequest) {
         let totalVideosFound = 0;
         let maxPageCount = 1;
 
-        // Search all sources in PARALLEL - don't wait for all to finish
-        const searchPromises = sources.map(async (source: any) => {
+        const searchSource = async (source: any) => {
           const startTime = performance.now(); // Track start time
           try {
+            const sourceId = typeof source?.id === 'string' ? source.id : '';
+            if (!sourceId) {
+              throw new Error('Invalid source id');
+            }
 
-            // Search page 1 for this source
-            const result = await searchVideos(query.trim(), [source], 1);
+            // Search only the requested page for this source.
+            const result = await searchVideos(trimmedQuery, [source], targetPage);
             const endTime = performance.now(); // Track end time
             const latency = Math.round(endTime - startTime); // Calculate latency in ms
             const videos = result[0]?.results || [];
@@ -71,77 +86,39 @@ export async function POST(request: NextRequest) {
 
             completedSources++;
             totalVideosFound += videos.length;
+            maxPageCount = Math.max(maxPageCount, pagecount);
 
-            // Stream page 1 videos immediately
+            // Stream current-page videos immediately
             if (videos.length > 0) {
               controller.enqueue(encoder.encode(`data: ${JSON.stringify({
                 type: 'videos',
                 videos: videos.map((video: any) => ({
                   ...video,
-                  sourceDisplayName: getSourceName(source.id),
+                  sourceDisplayName: getSourceName(sourceId),
                   latency,
                 })),
-                source: source.id,
+                source: sourceId,
                 completedSources,
                 totalSources: sources.length,
                 latency,
+                page: targetPage,
+                pagecount,
               })}\n\n`));
             }
 
-            // Send progress update for page 1
+            // Send progress update for current page
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({
               type: 'progress',
               completedSources,
               totalSources: sources.length,
               totalVideosFound
             })}\n\n`));
-
-            // Auto-fetch remaining pages if pagecount > 1
-            if (pagecount > 1) {
-              const remainingPages = Array.from({ length: pagecount - 1 }, (_, i) => i + 2);
-              const pagePromises = remainingPages.map(async (pg) => {
-                try {
-                  const pageResult = await searchVideos(query.trim(), [source], pg);
-                  const pageVideos = pageResult[0]?.results || [];
-
-                  totalVideosFound += pageVideos.length;
-
-                  if (pageVideos.length > 0) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                      type: 'videos',
-                      videos: pageVideos.map((video: any) => ({
-                        ...video,
-                        sourceDisplayName: getSourceName(source.id),
-                        latency,
-                      })),
-                      source: source.id,
-                      completedSources,
-                      totalSources: sources.length,
-                      latency,
-                    })}\n\n`));
-                  }
-
-                  // Progress update for each additional page
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                    type: 'progress',
-                    completedSources,
-                    totalSources: sources.length,
-                    totalVideosFound
-                  })}\n\n`));
-
-                } catch (pageError) {
-                  console.error(`[Search Parallel] Source ${source.id} page ${pg} failed:`, pageError);
-                }
-              });
-
-              await Promise.all(pagePromises);
-            }
-
           } catch (error) {
             const endTime = performance.now();
             const latency = Math.round(endTime - startTime);
+            const sourceId = typeof source?.id === 'string' ? source.id : 'unknown';
             // Log error but continue with other sources
-            console.error(`[Search Parallel] Source ${source.id} failed after ${latency}ms:`, error);
+            console.error(`[Search Parallel] Source ${sourceId} failed after ${latency}ms:`, error);
             completedSources++;
 
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({
@@ -151,10 +128,19 @@ export async function POST(request: NextRequest) {
               totalVideosFound
             })}\n\n`));
           }
-        });
+        };
 
-        // Wait for all sources to complete
-        await Promise.all(searchPromises);
+        // Run with bounded concurrency to avoid CPU spikes.
+        const concurrency = Math.min(getSearchConcurrency(), sources.length);
+        let nextIndex = 0;
+        const workers = Array.from({ length: concurrency }, async () => {
+          while (true) {
+            const current = nextIndex++;
+            if (current >= sources.length) break;
+            await searchSource(sources[current]);
+          }
+        });
+        await Promise.all(workers);
 
 
 

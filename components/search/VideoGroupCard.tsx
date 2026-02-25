@@ -15,6 +15,7 @@ import { LatencyBadge } from '@/components/ui/LatencyBadge';
 import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { Video } from '@/lib/types';
 import { parseVideoTitle } from '@/lib/utils/video';
+import { setGroupedSourcesParam } from '@/lib/utils/grouped-sources-storage';
 
 export interface GroupedVideo {
     /** Representative video (lowest latency) */
@@ -68,7 +69,7 @@ export const VideoGroupCard = memo<VideoGroupCardProps>(({
                 pic: v.vod_pic,
                 typeName: v.type_name,
             }));
-            params.set('groupedSources', JSON.stringify(groupData));
+            setGroupedSourcesParam(params, groupData);
         }
 
         return `/player?${params.toString()}`;

@@ -18,6 +18,11 @@ import { settingsStore } from '@/lib/store/settings-store';
 import { premiumModeSettingsStore } from '@/lib/store/premium-mode-settings';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { getSourceName } from '@/lib/utils/source-names';
+import {
+  loadGroupedSources,
+  parseGroupedSourcesParam,
+  setGroupedSourcesParam,
+} from '@/lib/utils/grouped-sources-storage';
 
 function PlayerContent() {
   const searchParams = useSearchParams();
@@ -30,6 +35,7 @@ function PlayerContent() {
   const title = searchParams.get('title');
   const episodeParam = searchParams.get('episode');
   const groupedSourcesParam = searchParams.get('groupedSources');
+  const groupedSourcesKeyParam = searchParams.get('gsk');
 
   // Track settings - use mode-specific store
   const modeStore = isPremium ? premiumModeSettingsStore : settingsStore;
@@ -72,15 +78,16 @@ function PlayerContent() {
   // Parse grouped sources if available
   const [discoveredSources, setDiscoveredSources] = useState<SourceInfo[]>([]);
 
-  const groupedSources = useMemo<SourceInfo[]>(() => {
-    let sources: SourceInfo[] = [];
-    if (groupedSourcesParam) {
-      try {
-        sources = JSON.parse(groupedSourcesParam);
-      } catch {
-        sources = [];
-      }
+  const baseGroupedSources = useMemo<SourceInfo[]>(() => {
+    const fromKey = loadGroupedSources(groupedSourcesKeyParam);
+    if (fromKey.length > 0) {
+      return fromKey;
     }
+    return parseGroupedSourcesParam(groupedSourcesParam);
+  }, [groupedSourcesKeyParam, groupedSourcesParam]);
+
+  const groupedSources = useMemo<SourceInfo[]>(() => {
+    let sources: SourceInfo[] = [...baseGroupedSources];
 
     // Merge in discovered sources (from background search)
     if (discoveredSources.length > 0) {
@@ -108,7 +115,7 @@ function PlayerContent() {
     }
 
     return sources;
-  }, [groupedSourcesParam, source, videoId, videoData?.vod_pic, discoveredSources]);
+  }, [baseGroupedSources, source, videoId, videoData?.vod_pic, discoveredSources]);
 
   // Wire up the source unavailable handler now that groupedSources is defined
   sourceUnavailableRef.current = () => {
@@ -131,7 +138,7 @@ function PlayerContent() {
     params.set('source', best.source);
     params.set('title', title || '');
     if (episodeParam) params.set('episode', episodeParam);
-    if (groupedSourcesParam) params.set('groupedSources', groupedSourcesParam);
+    setGroupedSourcesParam(params, groupedSources);
     if (isPremium) params.set('premium', '1');
     router.replace(`/player?${params.toString()}`, { scroll: false });
   };
@@ -149,10 +156,7 @@ function PlayerContent() {
     if (fetchedSourcesRef.current || !title) return;
 
     // Check if existing grouped sources already have full info (pic + latency)
-    let existingSources: SourceInfo[] = [];
-    if (groupedSourcesParam) {
-      try { existingSources = JSON.parse(groupedSourcesParam); } catch {}
-    }
+    const existingSources: SourceInfo[] = baseGroupedSources;
     // Always fetch alternatives if there's a pending fallback (source unavailable)
     const hasFullInfo = !pendingFallbackRef.current && existingSources.length > 1 &&
       existingSources.every(s => s.pic || s.latency !== undefined);
@@ -223,7 +227,7 @@ function PlayerContent() {
     })();
 
     return () => controller.abort();
-  }, [title, source, groupedSourcesParam, isPremium]);
+  }, [title, source, baseGroupedSources, isPremium]);
 
   // Track current source for switching
   const [currentSourceId, setCurrentSourceId] = useState(source);
@@ -261,6 +265,14 @@ function PlayerContent() {
 
     // Update URL to reflect current episode
     const params = new URLSearchParams(searchParams.toString());
+    // Migrate legacy inline groupedSources payload to short key on navigation.
+    if (params.has('groupedSources')) {
+      const legacyGroupedSources = parseGroupedSourcesParam(params.get('groupedSources'));
+      params.delete('groupedSources');
+      if (!params.has('gsk')) {
+        setGroupedSourcesParam(params, legacyGroupedSources);
+      }
+    }
     params.set('episode', index.toString());
     router.replace(`/player?${params.toString()}`, { scroll: false });
   }, [searchParams, router, setCurrentEpisode, setPlayUrl, setVideoError]);
@@ -402,11 +414,7 @@ function PlayerContent() {
                       }
                       // Pass all known sources so switching persists
                       const allSources = groupedSources.length > 0 ? groupedSources : [];
-                      if (allSources.length > 1) {
-                        params.set('groupedSources', JSON.stringify(allSources));
-                      } else if (groupedSourcesParam) {
-                        params.set('groupedSources', groupedSourcesParam);
-                      }
+                      setGroupedSourcesParam(params, allSources);
                       if (isPremium) {
                         params.set('premium', '1');
                       }

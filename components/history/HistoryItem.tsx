@@ -10,6 +10,7 @@ import { PosterImage } from './PosterImage';
 import { FavoriteButton } from '@/components/favorites/FavoriteButton';
 import { getSourceName } from '@/lib/utils/source-names';
 import type { VideoHistoryItem } from '@/lib/types';
+import { setGroupedSourcesParam } from '@/lib/utils/grouped-sources-storage';
 
 interface HistoryItemProps {
   item: VideoHistoryItem;
@@ -32,7 +33,7 @@ export function HistoryItem({ item, onRemove, isPremium = false }: HistoryItemPr
         source: sourceName,
         sourceName: getSourceName(sourceName),
       }));
-      params.set('groupedSources', JSON.stringify(groupData));
+      setGroupedSourcesParam(params, groupData);
     }
     if (isPremium) {
       params.set('premium', '1');

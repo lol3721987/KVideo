@@ -51,9 +51,7 @@ export function HistoryItem({ item, onRemove, isPremium = false }: HistoryItemPr
   };
 
   const progress = (item.playbackPosition / item.duration) * 100;
-  const episodeText = item.episodes && item.episodes.length > 0
-    ? item.episodes[item.episodeIndex]?.name || `第${item.episodeIndex + 1}集`
-    : '';
+  const episodeText = item.episodes?.[item.episodeIndex]?.name || `第${item.episodeIndex + 1}集`;
 
   return (
     <div className="group bg-[color-mix(in_srgb,var(--glass-bg)_50%,transparent)] rounded-[var(--radius-2xl)] p-3 hover:bg-[color-mix(in_srgb,var(--accent-color)_10%,transparent)] transition-all border border-transparent hover:border-[var(--glass-border)]">

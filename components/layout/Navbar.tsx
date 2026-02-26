@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Icons } from '@/components/ui/Icon';
-import { siteConfig } from '@/lib/config/site-config';
+import { useRuntimeSiteConfig } from '@/lib/hooks/useRuntimeSiteConfig';
 import { getSession, clearSession, hasPermission, type AuthSession } from '@/lib/store/auth-store';
 import { LogOut } from 'lucide-react';
 
@@ -17,6 +17,7 @@ interface NavbarProps {
 export function Navbar({ onReset, isPremiumMode = false }: NavbarProps) {
     const settingsHref = isPremiumMode ? '/premium/settings' : '/settings';
     const [session, setSessionState] = useState<AuthSession | null>(null);
+    const runtimeSiteConfig = useRuntimeSiteConfig();
 
     useEffect(() => {
         setSessionState(getSession());
@@ -47,15 +48,15 @@ export function Navbar({ onReset, isPremiumMode = false }: NavbarProps) {
                             <div className="w-8 h-8 sm:w-10 sm:h-10 relative flex items-center justify-center flex-shrink-0">
                                 <Image
                                     src="/icon.png"
-                                    alt={siteConfig.name}
+                                    alt={runtimeSiteConfig.name}
                                     width={40}
                                     height={40}
                                     className="object-contain"
                                 />
                             </div>
                             <div className="flex flex-col min-w-0">
-                                <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-color)] truncate">{siteConfig.name}</h1>
-                                <p className="text-xs text-[var(--text-color-secondary)] hidden sm:block truncate">{siteConfig.description}</p>
+                                <h1 className="text-lg sm:text-2xl font-bold text-[var(--text-color)] truncate">{runtimeSiteConfig.name}</h1>
+                                <p className="text-xs text-[var(--text-color-secondary)] hidden sm:block truncate">{runtimeSiteConfig.description}</p>
                             </div>
                         </Link>
 

@@ -12,6 +12,7 @@ import {
   setAuthCookie,
   verifyAuthToken,
 } from '@/lib/server/auth-cookie';
+import { getServerSiteConfig } from '@/lib/config/site-config';
 
 export const runtime = 'edge';
 
@@ -99,6 +100,7 @@ async function buildSuccessResponse(
 }
 
 export async function GET(request: NextRequest) {
+  const runtimeSiteConfig = getServerSiteConfig();
   const hasAuth = isAuthEnabled();
   const token = getAuthTokenFromRequest(request);
   const session = await verifyAuthToken(token);
@@ -108,6 +110,9 @@ export async function GET(request: NextRequest) {
     persistSession: PERSIST_SESSION,
     authenticated: !!session,
     subscriptionSources: !hasAuth || !!session ? SUBSCRIPTION_SOURCES : '',
+    siteName: runtimeSiteConfig.name,
+    siteTitle: runtimeSiteConfig.title,
+    siteDescription: runtimeSiteConfig.description,
   });
 }
 

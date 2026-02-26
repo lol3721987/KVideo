@@ -8,7 +8,7 @@ import { TVNavigationInitializer } from "@/components/TVNavigationInitializer";
 import { Analytics } from "@vercel/analytics/react";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import { PasswordGate } from "@/components/PasswordGate";
-import { siteConfig } from "@/lib/config/site-config";
+import { getServerSiteConfig } from "@/lib/config/site-config";
 import { AdKeywordsInjector } from "@/components/AdKeywordsInjector";
 import { BackToTop } from "@/components/ui/BackToTop";
 import { ScrollPositionManager } from "@/components/ScrollPositionManager";
@@ -64,9 +64,11 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const runtimeSiteConfig = getServerSiteConfig();
+
 export const metadata: Metadata = {
-  title: siteConfig.title,
-  description: siteConfig.description,
+  title: runtimeSiteConfig.title,
+  description: runtimeSiteConfig.description,
   icons: {
     icon: '/icon.png',
   },
@@ -85,7 +87,7 @@ export default function RootLayout({
         {/* Apple PWA Support */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="KVideo" />
+        <meta name="apple-mobile-web-app-title" content={runtimeSiteConfig.name} />
         <link rel="apple-touch-icon" href="/icon.png" />
         {/* Theme Color (for browser address bar) */}
         <meta name="theme-color" content="#000000" />

@@ -4,10 +4,11 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { ThemeSwitcher } from '@/components/ThemeSwitcher';
 import { Icons } from '@/components/ui/Icon';
-import { siteConfig } from '@/lib/config/site-config';
+import { useRuntimeSiteConfig } from '@/lib/hooks/useRuntimeSiteConfig';
 
 export function PlayerNavbar({ isPremium }: { isPremium?: boolean }) {
     const router = useRouter();
+    const runtimeSiteConfig = useRuntimeSiteConfig();
 
     return (
         <nav className="sticky top-0 z-50 pt-4 pb-2 px-4" style={{ transform: 'translateZ(0)' }}>
@@ -21,7 +22,7 @@ export function PlayerNavbar({ isPremium }: { isPremium?: boolean }) {
                         >
                             <Image
                                 src="/icon.png"
-                                alt={siteConfig.name}
+                                alt={runtimeSiteConfig.name}
                                 width={40}
                                 height={40}
                                 className="object-contain"

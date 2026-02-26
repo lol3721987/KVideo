@@ -4,18 +4,38 @@
  */
 
 export interface SiteConfig {
-  title: string;
-  description: string;
-  name: string;
+    title: string;
+    description: string;
+    name: string;
+}
+
+export const DEFAULT_SITE_CONFIG: SiteConfig = {
+    title: 'KVideo - 视频聚合平台',
+    description: '视频聚合平台',
+    name: 'KVideo',
+};
+
+function pickFirstNonEmpty(...values: Array<string | undefined>): string | undefined {
+    return values.find((value) => typeof value === 'string' && value.trim().length > 0)?.trim();
 }
 
 /**
- * Site configuration object
- * Uses environment variables with fallback to default values
- * Note: NEXT_PUBLIC_ environment variables are statically embedded at build time
+ * Server-side runtime config resolver.
+ * Priority:
+ * 1) SITE_* (runtime-oriented)
+ * 2) NEXT_PUBLIC_SITE_* (backward compatibility)
+ * 3) defaults
  */
-export const siteConfig: SiteConfig = {
-  title: process.env.NEXT_PUBLIC_SITE_TITLE || "KVideo - 视频聚合平台",
-  description: process.env.NEXT_PUBLIC_SITE_DESCRIPTION || "视频聚合平台",
-  name: process.env.NEXT_PUBLIC_SITE_NAME || "KVideo",
-};
+export function getServerSiteConfig(): SiteConfig {
+    return {
+        title: pickFirstNonEmpty(process.env.SITE_TITLE, process.env.NEXT_PUBLIC_SITE_TITLE) || DEFAULT_SITE_CONFIG.title,
+        description: pickFirstNonEmpty(process.env.SITE_DESCRIPTION, process.env.NEXT_PUBLIC_SITE_DESCRIPTION) || DEFAULT_SITE_CONFIG.description,
+        name: pickFirstNonEmpty(process.env.SITE_NAME, process.env.NEXT_PUBLIC_SITE_NAME) || DEFAULT_SITE_CONFIG.name,
+    };
+}
+
+/**
+ * Client-side fallback config.
+ * Keep it static to avoid relying on NEXT_PUBLIC build-time injection.
+ */
+export const siteConfig: SiteConfig = DEFAULT_SITE_CONFIG;

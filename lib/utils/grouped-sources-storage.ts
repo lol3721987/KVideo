@@ -177,9 +177,5 @@ export function setGroupedSourcesParam(
     const key = saveGroupedSources(entries);
     if (key) {
         params.set('gsk', key);
-        return;
     }
-
-    // Fallback only when storage is unavailable.
-    params.set('groupedSources', JSON.stringify(entries));
 }

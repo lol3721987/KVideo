@@ -122,6 +122,27 @@ exec node server.js
 EOF
 chmod +x "${OUTPUT_DIR}/run.sh"
 
+# Env-based startup script for low-spec runtime nodes.
+cp -a "${SCRIPT_DIR}/start-with-env.sh" "${OUTPUT_DIR}/start-with-env.sh"
+chmod +x "${OUTPUT_DIR}/start-with-env.sh"
+
+cat > "${OUTPUT_DIR}/.env.production.example" <<'EOF'
+# Runtime environment example for start-with-env.sh
+NODE_ENV=production
+PORT=3000
+HOSTNAME=0.0.0.0
+
+# Auth
+# ADMIN_PASSWORD=change-me
+# AUTH_COOKIE_SECRET=change-me
+# PERSIST_SESSION=true
+
+# Runtime site branding
+# SITE_NAME=KVideo
+# SITE_TITLE=KVideo - 视频聚合平台
+# SITE_DESCRIPTION=视频聚合平台
+EOF
+
 echo "==> Packaging archive..."
 tar -czf "${ARCHIVE_NAME}" -C "${OUTPUT_DIR}" .
 
@@ -137,4 +158,6 @@ echo
 echo "Deploy on low-spec server:"
 echo "  1) tar -xzf ${ARCHIVE_NAME} -C /opt/kvideo"
 echo "  2) cd /opt/kvideo"
-echo "  3) PORT=23007 HOSTNAME=0.0.0.0 ./run.sh"
+echo "  3) cp .env.production.example .env.production  # optional"
+echo "  4) vi .env.production"
+echo "  5) ./start-with-env.sh --env-file .env.production"

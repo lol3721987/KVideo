@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
+import { safeLocalStorageSetItem } from '@/lib/utils/safe-storage';
 
 const DEFAULT_TAG = { id: 'popular', label: '热门', value: '热门' };
 
@@ -21,7 +22,11 @@ export function useTagManager() {
 
     // Persist content type preference
     useEffect(() => {
-        localStorage.setItem('kvideo_default_content_type', contentType);
+        safeLocalStorageSetItem(
+            'kvideo_default_content_type',
+            contentType,
+            { context: 'TagManager' }
+        );
     }, [contentType]);
 
     const storageKey = `${STORAGE_KEY_PREFIX}${contentType}`;
@@ -76,7 +81,11 @@ export function useTagManager() {
 
     const saveTags = (newTags: any[]) => {
         setTags(newTags);
-        localStorage.setItem(storageKey, JSON.stringify(newTags));
+        safeLocalStorageSetItem(
+            storageKey,
+            JSON.stringify(newTags),
+            { context: 'TagManager' }
+        );
     };
 
     const handleAddTag = () => {

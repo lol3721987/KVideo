@@ -4,11 +4,13 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, type StorageValue } from 'zustand/middleware';
 import type { FavoriteItem } from '@/lib/types';
 import { profiledKey } from '@/lib/utils/profile-storage';
+import { createSafePersistStorage } from '@/lib/utils/safe-storage';
 
 const MAX_FAVORITES = 100;
+const FAVORITES_PERSIST_RETRY_LIMITS = [80, 40, 20] as const;
 
 interface FavoritesState {
     favorites: FavoriteItem[];
@@ -24,6 +26,24 @@ interface FavoritesActions {
 }
 
 interface FavoritesStore extends FavoritesState, FavoritesActions { }
+type PersistedFavoritesState = Pick<FavoritesState, 'favorites'>;
+
+function trimFavorites(items: FavoriteItem[] | undefined, maxItems: number): FavoriteItem[] {
+    if (!Array.isArray(items) || maxItems <= 0) return [];
+    return items.slice(0, maxItems);
+}
+
+function withTrimmedFavorites(
+    value: StorageValue<PersistedFavoritesState>,
+    maxItems: number
+): StorageValue<PersistedFavoritesState> {
+    return {
+        ...value,
+        state: {
+            favorites: trimFavorites(value.state?.favorites, maxItems),
+        },
+    };
+}
 
 /**
  * Generate unique identifier for a favorite item
@@ -109,11 +129,21 @@ const createFavoritesStore = (name: string) =>
                 },
 
                 importFavorites: (favorites) => {
-                    set({ favorites });
+                    set({ favorites: trimFavorites(favorites, MAX_FAVORITES) });
                 },
             }),
             {
                 name,
+                storage: createSafePersistStorage<PersistedFavoritesState>({
+                    label: 'FavoritesStore',
+                    reducers: FAVORITES_PERSIST_RETRY_LIMITS.map(
+                        (maxItems) => (value) => withTrimmedFavorites(value, maxItems)
+                    ),
+                    fallbackReducer: (value) => withTrimmedFavorites(value, 10),
+                }),
+                partialize: (state) => ({
+                    favorites: trimFavorites(state.favorites, MAX_FAVORITES),
+                }),
             }
         )
     );

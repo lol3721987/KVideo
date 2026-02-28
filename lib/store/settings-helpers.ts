@@ -1,5 +1,6 @@
 import type { AppSettings } from './settings-store';
 import { profiledKey } from '@/lib/utils/profile-storage';
+import { safeLocalStorageSetItem } from '@/lib/utils/safe-storage';
 
 export const SEARCH_HISTORY_KEY = 'kvideo-search-history';
 export const WATCH_HISTORY_KEY = 'kvideo-watch-history';
@@ -50,12 +51,20 @@ export function importSettings(
 
         // Case 2: History only (can be independent)
         if (data.searchHistory && typeof window !== 'undefined') {
-            localStorage.setItem(profiledKey(SEARCH_HISTORY_KEY), JSON.stringify(data.searchHistory));
-            imported = true;
+            const savedSearchHistory = safeLocalStorageSetItem(
+                profiledKey(SEARCH_HISTORY_KEY),
+                JSON.stringify(data.searchHistory),
+                { context: 'SettingsImport' }
+            );
+            imported = imported || savedSearchHistory;
         }
         if (data.watchHistory && typeof window !== 'undefined') {
-            localStorage.setItem(profiledKey(WATCH_HISTORY_KEY), JSON.stringify(data.watchHistory));
-            imported = true;
+            const savedWatchHistory = safeLocalStorageSetItem(
+                profiledKey(WATCH_HISTORY_KEY),
+                JSON.stringify(data.watchHistory),
+                { context: 'SettingsImport' }
+            );
+            imported = imported || savedWatchHistory;
         }
 
         if (imported) return true;

@@ -3,8 +3,9 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, type StorageValue } from 'zustand/middleware';
 import { parseM3U, groupChannelsByName, type M3UChannel } from '@/lib/utils/m3u-parser';
+import { createSafePersistStorage } from '@/lib/utils/safe-storage';
 
 export interface IPTVSource {
   id: string;
@@ -33,6 +34,42 @@ interface IPTVActions {
 interface IPTVStore extends IPTVState, IPTVActions {}
 
 const MAX_CONCURRENT = 3;
+const MAX_PERSISTED_SOURCES = 100;
+const IPTV_PERSIST_RETRY_LIMITS = [60, 30, 15] as const;
+type PersistedIPTVState = Pick<IPTVState, 'sources' | 'lastRefreshed'>;
+
+function sanitizeSources(sources: IPTVSource[] | undefined, maxItems: number): IPTVSource[] {
+  if (!Array.isArray(sources) || maxItems <= 0) return [];
+
+  return sources.slice(0, maxItems).map((source) => ({
+    ...source,
+    name: source.name?.trim() || '未命名来源',
+    url: source.url?.trim() || '',
+    addedAt: Number.isFinite(source.addedAt) ? source.addedAt : Date.now(),
+  }));
+}
+
+function sanitizePersistedState(
+  state: PersistedIPTVState | undefined,
+  maxItems: number
+): PersistedIPTVState {
+  return {
+    sources: sanitizeSources(state?.sources, maxItems),
+    lastRefreshed: Number.isFinite(state?.lastRefreshed)
+      ? (state?.lastRefreshed as number)
+      : 0,
+  };
+}
+
+function withTrimmedPersistedState(
+  value: StorageValue<PersistedIPTVState>,
+  maxItems: number
+): StorageValue<PersistedIPTVState> {
+  return {
+    ...value,
+    state: sanitizePersistedState(value.state, maxItems),
+  };
+}
 
 async function fetchWithConcurrencyLimit<T>(
   tasks: (() => Promise<T>)[],
@@ -154,12 +191,20 @@ export const useIPTVStore = create<IPTVStore>()(
     }),
     {
       name: 'kvideo-iptv-store',
-      partialize: (state) => ({
-        sources: state.sources,
-        lastRefreshed: state.lastRefreshed,
-        // Don't persist cachedChannels/cachedGroups - they can be very large
-        // and will be re-fetched on page load
+      storage: createSafePersistStorage<PersistedIPTVState>({
+        label: 'IPTVStore',
+        reducers: IPTV_PERSIST_RETRY_LIMITS.map(
+          (maxItems) => (value) => withTrimmedPersistedState(value, maxItems)
+        ),
+        fallbackReducer: (value) => withTrimmedPersistedState(value, 10),
       }),
+      partialize: (state): PersistedIPTVState => sanitizePersistedState(
+        {
+          sources: state.sources,
+          lastRefreshed: state.lastRefreshed,
+        },
+        MAX_PERSISTED_SOURCES
+      ),
     }
   )
 );

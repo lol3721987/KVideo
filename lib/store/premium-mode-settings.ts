@@ -5,6 +5,7 @@
  */
 
 import type { SortOption, SearchDisplayMode, ProxyMode, AdFilterMode } from './settings-store';
+import { safeLocalStorageSetItem } from '@/lib/utils/safe-storage';
 
 const PREMIUM_MODE_SETTINGS_KEY = 'kvideo-premium-mode-settings';
 
@@ -111,7 +112,11 @@ export const premiumModeSettingsStore = {
 
   saveSettings(settings: ModeSettings): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(PREMIUM_MODE_SETTINGS_KEY, JSON.stringify(settings));
+      safeLocalStorageSetItem(
+        PREMIUM_MODE_SETTINGS_KEY,
+        JSON.stringify(settings),
+        { context: 'PremiumModeSettingsStore' }
+      );
       this.notifyListeners();
     }
   },

@@ -6,6 +6,7 @@ import type { VideoSource, SourceSubscription } from '@/lib/types';
 import { DEFAULT_SOURCES } from '@/lib/api/default-sources';
 import { PREMIUM_SOURCES } from '@/lib/api/premium-sources';
 import { createSubscription } from '@/lib/utils/source-import-utils';
+import { safeLocalStorageSetItem } from '@/lib/utils/safe-storage';
 
 export type SortOption =
   | 'default'
@@ -234,7 +235,11 @@ export const settingsStore = {
 
   saveSettings(settings: AppSettings): void {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      safeLocalStorageSetItem(
+        SETTINGS_KEY,
+        JSON.stringify(settings),
+        { context: 'SettingsStore' }
+      );
       this.notifyListeners();
     }
   },

@@ -3,6 +3,7 @@ import { Tag } from '@/components/home/SortableTag';
 import { DragEndEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { PREMIUM_STORAGE_KEY } from '@/lib/constants/premium-tags';
+import { safeLocalStorageSetItem } from '@/lib/utils/safe-storage';
 
 export function usePremiumTagManager() {
     const [tags, setTags] = useState<Tag[]>([]);
@@ -91,7 +92,11 @@ export function usePremiumTagManager() {
     // Save tags to local storage whenever they change
     useEffect(() => {
         if (tags.length > 0 && !loading) {
-            localStorage.setItem(PREMIUM_STORAGE_KEY, JSON.stringify(tags));
+            safeLocalStorageSetItem(
+                PREMIUM_STORAGE_KEY,
+                JSON.stringify(tags),
+                { context: 'PremiumTagManager' }
+            );
         }
     }, [tags, loading]);
 

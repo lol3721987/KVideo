@@ -5,6 +5,7 @@
 
 import { getProfileId } from './auth-store';
 import type { VideoSource } from '@/lib/types';
+import { safeLocalStorageSetItem } from '@/lib/utils/safe-storage';
 
 export interface DanmakuApiEntry {
   id: string;
@@ -43,8 +44,14 @@ function getState(): UserSourcesState {
 
 function saveState(state: UserSourcesState): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(getStorageKey(), JSON.stringify(state));
-  userSourcesStore.notifyListeners();
+  const persisted = safeLocalStorageSetItem(
+    getStorageKey(),
+    JSON.stringify(state),
+    { context: 'UserSourcesStore' }
+  );
+  if (persisted) {
+    userSourcesStore.notifyListeners();
+  }
 }
 
 export const userSourcesStore = {
